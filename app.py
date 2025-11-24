@@ -496,142 +496,21 @@ def get_hardware_info() -> str:
 # GRADIO APP
 # =============================================================================
 
-CUSTOM_CSS = """
-/* Main container styling */
-.gradio-container {
-    max-width: 1400px !important;
-}
-
-/* Header styling */
-.main-header {
-    text-align: center;
-    padding: 1.5rem 0;
-    margin-bottom: 1rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 12px;
-    color: white;
-}
-
-.main-header h1 {
-    margin: 0;
-    font-size: 2.5rem;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-}
-
-.main-header p {
-    margin: 0.5rem 0 0 0;
-    opacity: 0.9;
-    font-size: 1.1rem;
-}
-
-/* Card-like sections */
-.result-card {
-    background: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
-    border-radius: 10px;
-    padding: 1rem;
-    border-left: 4px solid #667eea;
-}
-
-/* Big prediction number */
-.prediction-big {
-    font-size: 3rem;
-    font-weight: bold;
-    color: #667eea;
-    text-align: center;
-}
-
-/* Confidence bar colors */
-.confidence-high { color: #28a745; }
-.confidence-medium { color: #ffc107; }
-.confidence-low { color: #dc3545; }
-
-/* Button styling */
-.primary-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    border: none !important;
-    font-weight: bold !important;
-}
-
-/* Tab styling */
-.tab-nav button {
-    font-weight: 600 !important;
-}
-
-.tab-nav button.selected {
-    border-bottom: 3px solid #667eea !important;
-}
-
-/* Stats cards */
-.stat-card {
-    background: white;
-    border-radius: 8px;
-    padding: 1rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    text-align: center;
-}
-
-.stat-number {
-    font-size: 2rem;
-    font-weight: bold;
-    color: #667eea;
-}
-
-/* Warning styling */
-.warning-box {
-    background: #fff3cd;
-    border-left: 4px solid #ffc107;
-    padding: 0.75rem;
-    border-radius: 4px;
-    margin: 0.5rem 0;
-}
-
-/* Success styling */
-.success-box {
-    background: #d4edda;
-    border-left: 4px solid #28a745;
-    padding: 0.75rem;
-    border-radius: 4px;
-    margin: 0.5rem 0;
-}
-
-/* Error styling */
-.error-box {
-    background: #f8d7da;
-    border-left: 4px solid #dc3545;
-    padding: 0.75rem;
-    border-radius: 4px;
-    margin: 0.5rem 0;
-}
-
-/* Heatmap container */
-.heatmap-container {
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-/* File upload area */
-.file-upload {
-    border: 2px dashed #667eea !important;
-    border-radius: 12px !important;
-    background: rgba(102, 126, 234, 0.05) !important;
-}
-
-/* Accordion styling */
-.accordion {
-    border-radius: 8px !important;
-    border: 1px solid #e9ecef !important;
-}
-"""
-
 def create_app():
     """Create the Gradio application."""
 
-    with gr.Blocks(title="LLM Benchmark AI", css=CUSTOM_CSS) as app:
-        # Custom header
+    with gr.Blocks(title="LLM Benchmark AI") as app:
+        # Custom header with inline styles
         gr.HTML("""
-        <div class="main-header">
-            <h1>🚀 LLM Benchmark AI</h1>
-            <p>Benchmark GGUF models and predict performance using machine learning</p>
+        <div style="text-align: center; padding: 1.5rem 0; margin-bottom: 1rem;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-radius: 12px; color: white;">
+            <h1 style="margin: 0; font-size: 2.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">
+                🚀 LLM Benchmark AI
+            </h1>
+            <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem;">
+                Benchmark GGUF models and predict performance using machine learning
+            </p>
         </div>
         """)
 
