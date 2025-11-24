@@ -892,8 +892,8 @@ class MLPredictor:
 
     def train(self, df: pd.DataFrame, epochs: int = 100) -> Dict[str, float]:
         """Train both models on benchmark data."""
-        if len(df) < 10:
-            raise ValueError("Need at least 10 benchmarks to train")
+        if len(df) < 2:
+            raise ValueError("Need at least 2 benchmarks to train")
 
         self.training_data = df.copy()
 
@@ -902,9 +902,14 @@ class MLPredictor:
         # Scale continuous features
         X_cont_scaled = self.scaler.fit_transform(X_cont)
 
-        # Split data
+        # Split data - for small datasets, use all data for both train and eval
         indices = np.arange(len(df))
-        train_idx, val_idx = train_test_split(indices, test_size=0.2, random_state=42)
+        if len(df) < 5:
+            # Too few samples to split meaningfully - train and eval on all
+            train_idx = indices
+            val_idx = indices
+        else:
+            train_idx, val_idx = train_test_split(indices, test_size=0.2, random_state=42)
 
         X_train, X_val = X_cont_scaled[train_idx], X_cont_scaled[val_idx]
         q_train, q_val = quant_idx[train_idx], quant_idx[val_idx]
@@ -1178,7 +1183,7 @@ class MLPredictor:
 
     def get_per_quantization_metrics(self, df: pd.DataFrame) -> Dict[str, Dict]:
         """Get performance metrics broken down by quantization."""
-        if not self.is_trained or df is None or len(df) < 10:
+        if not self.is_trained or df is None or len(df) < 2:
             return {}
 
         results = {}
