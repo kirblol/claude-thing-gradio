@@ -482,7 +482,7 @@ def get_hardware_info() -> str:
 def create_app():
     """Create the Gradio application."""
 
-    with gr.Blocks(title="LLM Benchmark AI", theme=gr.themes.Soft()) as app:
+    with gr.Blocks(title="LLM Benchmark AI") as app:
         gr.Markdown("# 🚀 LLM Benchmark AI")
         gr.Markdown("Benchmark GGUF models and predict performance using machine learning.")
 
