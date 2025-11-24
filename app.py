@@ -71,6 +71,41 @@ def get_model_status() -> str:
 # TAB 1: BENCHMARK RUNNER
 # =============================================================================
 
+def parse_uploaded_model(file_obj):
+    """Parse GGUF file and display model info immediately on upload."""
+    if file_obj is None:
+        return ""
+
+    file_path = file_obj.name if hasattr(file_obj, 'name') else str(file_obj)
+
+    try:
+        metadata = gguf_parser.parse(file_path)
+    except Exception as e:
+        return f"❌ **Error parsing file:** {e}"
+
+    # Build info display
+    info = f"""### 📋 Model Information
+
+| Property | Value |
+|----------|-------|
+| **Name** | {metadata.name} |
+| **Parameters** | **{metadata.params_billions:.2f}B** ({metadata.params_billions * 1000:.0f}M) |
+| **Quantization** | **{metadata.quantization}** |
+| **Architecture** | {metadata.architecture} |
+| **Context Length** | {metadata.context_length:,} tokens |
+"""
+
+    if metadata.is_moe:
+        info += f"""| **Model Type** | 🔀 **Mixture of Experts (MoE)** |
+| **Total Experts** | {metadata.moe_experts} |
+| **Active Experts** | {metadata.moe_active_experts} |
+| **Active Parameters** | ~{metadata.params_billions * metadata.moe_active_experts / metadata.moe_experts:.2f}B |
+"""
+    else:
+        info += f"| **Model Type** | Standard (Dense) |\n"
+
+    return info
+
 def run_benchmark(file_obj, num_runs: int, batch_sizes_str: str, context_size: int, progress=gr.Progress()):
     """Run benchmark on uploaded GGUF file."""
     if file_obj is None:
@@ -527,6 +562,12 @@ def create_app():
                             type="filepath"
                         )
 
+                        # Model info display - populated on file upload
+                        model_info_display = gr.Markdown(
+                            value="*Upload a GGUF file to see model information*",
+                            label="Model Info"
+                        )
+
                         with gr.Accordion("Configuration", open=True):
                             num_runs = gr.Slider(
                                 minimum=1, maximum=10, value=3, step=1,
@@ -554,6 +595,13 @@ def create_app():
 
                     with gr.Column():
                         coverage_plot = gr.Plot(label="Coverage Heatmap", value=get_coverage_heatmap())
+
+                # Parse model info on file upload
+                file_input.change(
+                    fn=parse_uploaded_model,
+                    inputs=[file_input],
+                    outputs=[model_info_display]
+                )
 
                 run_btn.click(
                     fn=run_benchmark,
