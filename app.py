@@ -40,28 +40,75 @@ db.save_hardware_profile(hardware_profile)
 # =============================================================================
 
 def format_confidence_bar(score: int) -> str:
-    """Create visual confidence bar."""
+    """Create visual confidence bar with color coding."""
     filled = "█" * score
     empty = "░" * (10 - score)
-    level = "HIGH" if score >= 8 else "MEDIUM" if score >= 5 else "LOW"
-    return f"{filled}{empty} {score}/10 {level}"
+    if score >= 8:
+        level = "HIGH"
+        color = "🟢"
+    elif score >= 5:
+        level = "MEDIUM"
+        color = "🟡"
+    else:
+        level = "LOW"
+        color = "🔴"
+    return f"{color} {filled}{empty} {score}/10 **{level}**"
 
 def get_model_status() -> str:
     """Get current ML model status."""
     count = db.get_benchmark_count()
-    if count < 10:
-        return f"⏳ Need {10 - count} more benchmarks to train model"
+    if count < 2:
+        return f"⏳ Need {2 - count} more benchmark(s) to train model"
     elif predictor.is_trained:
         metrics = db.get_latest_training_metrics()
         if metrics:
             return f"✅ Model trained (R²={metrics['r2']:.3f}, {metrics['num_samples']} samples)"
         return "✅ Model trained"
     else:
-        return "⚠️ Model needs training - click 'Retrain Model' in Model Performance tab"
+        return "⚠️ Model ready to train - click 'Retrain Model' in Model Performance tab"
 
 # =============================================================================
 # TAB 1: BENCHMARK RUNNER
 # =============================================================================
+
+def parse_uploaded_model(file_obj):
+    """Parse GGUF file and display model info immediately on upload."""
+    if file_obj is None:
+        return ""
+
+    file_path = file_obj.name if hasattr(file_obj, 'name') else str(file_obj)
+
+    try:
+        metadata = gguf_parser.parse(file_path)
+    except Exception as e:
+        return f"❌ **Error parsing file:** {e}"
+
+    # Build info display
+    # Calculate exact parameter counts
+    exact_billions = metadata.params_billions
+    exact_millions = metadata.params_billions * 1000
+
+    info = f"""### 📋 Model Information
+
+| Property | Value |
+|----------|-------|
+| **Name** | {metadata.name} |
+| **Parameters** | **{exact_billions}B** ({exact_millions}M) |
+| **Quantization** | **{metadata.quantization}** |
+| **Architecture** | {metadata.architecture} |
+| **Context Length** | {metadata.context_length:,} tokens |
+"""
+
+    if metadata.is_moe:
+        info += f"""| **Model Type** | 🔀 **Mixture of Experts (MoE)** |
+| **Total Experts** | {metadata.moe_experts} |
+| **Active Experts** | {metadata.moe_active_experts} |
+| **Active Parameters** | ~{metadata.params_billions * metadata.moe_active_experts / metadata.moe_experts:.2f}B |
+"""
+    else:
+        info += f"| **Model Type** | Standard (Dense) |\n"
+
+    return info
 
 def run_benchmark(file_obj, num_runs: int, batch_sizes_str: str, context_size: int, progress=gr.Progress()):
     """Run benchmark on uploaded GGUF file."""
@@ -180,17 +227,20 @@ def get_coverage_heatmap():
     matrix = suggestions.get_coverage_matrix(df)
 
     if matrix.sum().sum() == 0:
-        # Empty plot
+        # Empty plot with styled message
         fig = go.Figure()
         fig.add_annotation(
-            text="No benchmarks yet",
+            text="📊 No benchmarks yet<br><br>Run your first benchmark to see coverage!",
             xref="paper", yref="paper",
             x=0.5, y=0.5, showarrow=False,
-            font=dict(size=20)
+            font=dict(size=16, color="#667eea"),
+            align="center"
         )
         fig.update_layout(
-            title="Coverage Heatmap",
-            height=400
+            title=dict(text="📈 Coverage Heatmap", font=dict(size=18, color="#333")),
+            height=400,
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(102, 126, 234, 0.05)"
         )
         return fig
 
@@ -198,15 +248,18 @@ def get_coverage_heatmap():
         matrix.values,
         x=matrix.columns.tolist(),
         y=matrix.index.tolist(),
-        color_continuous_scale="Blues",
+        color_continuous_scale=[[0, "#f8f9fa"], [0.5, "#667eea"], [1, "#764ba2"]],
         labels=dict(x="Parameter Size", y="Quantization", color="Benchmarks"),
         text_auto=True,
         aspect="auto"
     )
     fig.update_layout(
-        title="Benchmark Coverage Heatmap",
-        height=400
+        title=dict(text="📈 Benchmark Coverage Heatmap", font=dict(size=18, color="#333")),
+        height=400,
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="system-ui, -apple-system, sans-serif")
     )
+    fig.update_traces(textfont=dict(size=12, color="white"))
     return fig
 
 # =============================================================================
@@ -219,7 +272,7 @@ def predict_performance(model_type: str, params: float, param_unit: str,
                        num_experts: int, experts_per_token: int):
     """Make performance prediction."""
     if not predictor.is_trained:
-        return "❌ Model not trained yet. Need at least 10 benchmarks.", "", []
+        return "❌ Model not trained yet. Run some benchmarks and click 'Retrain Model' in the Model Performance tab.", "", []
 
     # Handle parameter units
     if param_unit == "M":
@@ -370,7 +423,10 @@ def refresh_dataset_stats():
 def get_model_metrics() -> str:
     """Get ML model performance metrics."""
     if not predictor.is_trained:
-        return "⏳ Model not trained yet. Need at least 10 benchmarks."
+        count = db.get_benchmark_count()
+        if count < 2:
+            return f"⏳ Need at least 2 benchmarks to train. Currently have {count}."
+        return "⏳ Model not trained yet. Click 'Retrain Model' below to train."
 
     metrics = db.get_latest_training_metrics()
     if not metrics:
@@ -399,7 +455,7 @@ def get_model_metrics() -> str:
 
     # Per-quantization breakdown
     df = db.get_all_benchmarks()
-    if len(df) >= 10:
+    if len(df) >= 3:
         per_quant = predictor.get_per_quantization_metrics(df)
         if per_quant:
             text += "\n---\n\n### Per-Quantization Performance\n\n"
@@ -412,8 +468,8 @@ def retrain_model(progress=gr.Progress()):
     """Retrain the ML model."""
     df = db.get_all_benchmarks()
 
-    if len(df) < 10:
-        return f"❌ Need at least 10 benchmarks to train. Currently have {len(df)}."
+    if len(df) < 2:
+        return f"❌ Need at least 2 benchmarks to train. Currently have {len(df)}."
 
     progress(0.1, "Preparing training data...")
 
@@ -482,9 +538,20 @@ def get_hardware_info() -> str:
 def create_app():
     """Create the Gradio application."""
 
-    with gr.Blocks(title="LLM Benchmark AI", theme=gr.themes.Soft()) as app:
-        gr.Markdown("# 🚀 LLM Benchmark AI")
-        gr.Markdown("Benchmark GGUF models and predict performance using machine learning.")
+    with gr.Blocks(title="LLM Benchmark AI") as app:
+        # Custom header with inline styles
+        gr.HTML("""
+        <div style="text-align: center; padding: 1.5rem 0; margin-bottom: 1rem;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-radius: 12px; color: white;">
+            <h1 style="margin: 0; font-size: 2.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">
+                🚀 LLM Benchmark AI
+            </h1>
+            <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem;">
+                Benchmark GGUF models and predict performance using machine learning
+            </p>
+        </div>
+        """)
 
         with gr.Tabs():
             # =================================================================
@@ -497,6 +564,12 @@ def create_app():
                             label="Upload GGUF Model",
                             file_types=[".gguf"],
                             type="filepath"
+                        )
+
+                        # Model info display - populated on file upload
+                        model_info_display = gr.Markdown(
+                            value="*Upload a GGUF file to see model information*",
+                            label="Model Info"
                         )
 
                         with gr.Accordion("Configuration", open=True):
@@ -527,6 +600,13 @@ def create_app():
                     with gr.Column():
                         coverage_plot = gr.Plot(label="Coverage Heatmap", value=get_coverage_heatmap())
 
+                # Parse model info on file upload
+                file_input.change(
+                    fn=parse_uploaded_model,
+                    inputs=[file_input],
+                    outputs=[model_info_display]
+                )
+
                 run_btn.click(
                     fn=run_benchmark,
                     inputs=[file_input, num_runs, batch_sizes, context_size],
@@ -537,11 +617,6 @@ def create_app():
             # TAB 2: PREDICTOR
             # =================================================================
             with gr.TabItem("🔮 Predictor"):
-                predictor_enabled = db.get_benchmark_count() >= 10
-
-                if not predictor_enabled:
-                    gr.Markdown(f"⏳ **Predictor locked** - Need {10 - db.get_benchmark_count()} more benchmarks to enable predictions.")
-
                 with gr.Row():
                     with gr.Column(scale=1):
                         model_type = gr.Radio(
