@@ -84,12 +84,16 @@ def parse_uploaded_model(file_obj):
         return f"❌ **Error parsing file:** {e}"
 
     # Build info display
+    # Calculate exact parameter counts
+    exact_billions = metadata.params_billions
+    exact_millions = metadata.params_billions * 1000
+
     info = f"""### 📋 Model Information
 
 | Property | Value |
 |----------|-------|
 | **Name** | {metadata.name} |
-| **Parameters** | **{metadata.params_billions:.2f}B** ({metadata.params_billions * 1000:.0f}M) |
+| **Parameters** | **{exact_billions}B** ({exact_millions}M) |
 | **Quantization** | **{metadata.quantization}** |
 | **Architecture** | {metadata.architecture} |
 | **Context Length** | {metadata.context_length:,} tokens |
